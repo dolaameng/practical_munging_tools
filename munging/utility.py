@@ -1,5 +1,8 @@
 import numpy as np
 
+NUMERICAL_FEAT_DTYPES = np.array([np.float, np.int])
+CATEGORICAL_FEAT_DTYPES = np.array([np.bool, np.object])
+
 
 def convert_features_to_dtype(df, fnames, totype = np.str, copy = True):
 	"""

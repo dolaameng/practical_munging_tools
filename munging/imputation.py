@@ -1,16 +1,23 @@
 """
 Missing Value Imputation tools.
+
 Based on the suggestions given in reference 1, the best pratice distinguishs imputation for
 (1) Categorical data: imput the na values as new label "missing"
 (2) Numerical data: 
 	(2.1) random missing values (usually we don't know that is the case): na as mean
 	(2.2) systematic missing values (default assumption): na as 0, adding a new feature indicating missing values
+
+
+"Bad values" (e.g., negative income) are very customerized, so better leave them out of the library
+for now.
+
 References: 
 1. "Practical Data Science with R" by Nina Zumel and John Mount, Chapter 3, 4
 """
 import inspection
 import numpy as np 
 import pandas as pd
+from utility import NUMERICAL_FEAT_DTYPES, CATEGORICAL_FEAT_DTYPES
 
 def imput_categorical_features(df, feat_names, na_label = "missing", copy = True):
 	"""
@@ -56,8 +63,8 @@ def imput(df, na_categorical="missing", na_numerical=0, copy = True):
 	copy: whether to make a new copy of data frame 
 	"""
 	na_features = inspection.find_features_with_nas(df)
-	categorical_features = inspection.find_features_with_dtypes(df, dtypes = [np.bool, np.object])
-	numerical_features = inspection.find_features_with_dtypes(df, dtypes = [np.float, np.int])
+	categorical_features = inspection.find_features_with_dtypes(df, dtypes = CATEGORICAL_FEAT_DTYPES)
+	numerical_features = inspection.find_features_with_dtypes(df, dtypes = NUMERICAL_FEAT_DTYPES)
 	imputed = df.copy() if copy else df 
 	imputed = imput_categorical_features(imputed, np.intersect1d(na_features, categorical_features), 
 		copy = False)
