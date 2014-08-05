@@ -17,7 +17,7 @@ References:
 import inspection
 import numpy as np 
 import pandas as pd
-from utility import NUMERICAL_FEAT_DTYPES, CATEGORICAL_FEAT_DTYPES
+
 
 def imput_categorical_features(df, feat_names, na_label = "missing", copy = True):
 	"""
@@ -63,8 +63,8 @@ def imput(df, na_categorical="missing", na_numerical=0, copy = True):
 	copy: whether to make a new copy of data frame 
 	"""
 	na_features = inspection.find_features_with_nas(df)
-	categorical_features = inspection.find_features_with_dtypes(df, dtypes = CATEGORICAL_FEAT_DTYPES)
-	numerical_features = inspection.find_features_with_dtypes(df, dtypes = NUMERICAL_FEAT_DTYPES)
+	categorical_features = inspection.find_categorical_features(df)
+	numerical_features = inspection.find_numerical_features(df)
 	imputed = df.copy() if copy else df 
 	imputed = imput_categorical_features(imputed, np.intersect1d(na_features, categorical_features), 
 		copy = False)
