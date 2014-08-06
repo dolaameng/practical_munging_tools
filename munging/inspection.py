@@ -37,13 +37,16 @@ def plot_features_density(df, feat_names = None, plot_type="density", bins = 30)
 	fig.subplots_adjust(wspace = 0.25, hspace = 0.5)
 	axes = axes.ravel()
 	for ax, f in zip(axes, feat_names):
-		zscore, pvalue = stats.skewtest(df[f])
-		if plot_type is 'density':
-			df[f].plot(kind = plot_type, ax = ax, rot = 90)
-		else:
-			_ = ax.hist(df[f], bins = bins)
-		ax.set_title("zscore=%.2g, pvalue=%.2g" % (zscore, pvalue))
-		ax.set_xlabel(f)
+		try:
+			zscore, pvalue = stats.skewtest(df[f])
+			if plot_type is 'density':
+				df[f].plot(kind = plot_type, ax = ax, rot = 90)
+			else:
+				_ = ax.hist(df[f], bins = bins)
+			ax.set_title("zscore=%.2g, pvalue=%.2g" % (zscore, pvalue))
+			ax.set_xlabel(f)
+		except:
+			pass
 
 def find_features_skewed(df, skew_thr, feat_names = None):
 	"""

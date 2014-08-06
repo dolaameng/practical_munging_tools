@@ -33,7 +33,7 @@ def imput_categorical_features(df, feat_names, na_label = "missing", copy = True
 	imputed.replace(replace_pattern, inplace = True)
 	return imputed
 
-def imput_numerical_features(df, feat_names, na_value = 0, copy = True):
+def imput_numerical_features(df, feat_names, na_value = None, copy = True):
 	"""
 	Impute na values in numerical features (e.g., np.float, np.int)
 	The method replaces all na values in feat_names as na_value, and create a new feature for each 
@@ -43,18 +43,21 @@ def imput_numerical_features(df, feat_names, na_value = 0, copy = True):
 	na_value: values to impute for missing values 
 	copy: whether to get a new copy or use the existing df
 	"""
+	if na_value is None:
+		na_value = {f:0. for f in feat_names}
+	#print na_value
 	imputed = df.copy() if copy else df 
 	suffix = "_isna"
 	for f in feat_names:
 		na_pattern = pd.isnull(imputed[f])
 		if np.any(na_pattern):
 			imputed[f+suffix] = na_pattern
-	replace_pattern = {f: {np.nan: na_value} for f in feat_names}
+	replace_pattern = {f: {np.nan: na_value[f]} for f in feat_names}
 	imputed.replace(replace_pattern, inplace = True)
 	return imputed
 
 
-def imput(df, na_categorical="missing", na_numerical=0, copy = True):
+def imput(df, na_categorical="missing", na_numerical=None, copy = True):
 	"""
 	Take the guess of types of features, and impute their missing values accordingly.
 	df: DataFrame
@@ -67,7 +70,9 @@ def imput(df, na_categorical="missing", na_numerical=0, copy = True):
 	numerical_features = inspection.find_numerical_features(df)
 	imputed = df.copy() if copy else df 
 	imputed = imput_categorical_features(imputed, np.intersect1d(na_features, categorical_features), 
+		na_label = na_categorical,
 		copy = False)
 	imputed = imput_numerical_features(imputed, np.intersect1d(na_features, numerical_features), 
+		na_value = na_numerical,
 		copy = False)
 	return imputed
