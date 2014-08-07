@@ -3,7 +3,7 @@ practical_munging_tools
 
 Python implementation of a set of tips collected for practical data munging. The main purpose of the package is to facilitate practical tasks in data munging, such as missing value imputation, data transfromation, feature ranking and etc. 
 
-The purpose of the library is to implement the best practice in DA in routine code.
+The purpose of the library is to implement the best practice in DA in easier way in practice.
 
 It interfaces with pandas DataFrame.
 
