@@ -27,3 +27,4 @@ It interfaces with pandas DataFrame.
 		- detection of near-zero variance features - (a) #_unique_values/sample_size is low <= 0.1, (b) #_most_freq_value/#_second_most_freq_value is large >= 20) - NOT applicable to numerical variables.
 		- find clusters (components) of correlated features - either by visually or by PCA (# of significant components corresponds to # of correlated clusters, and the large coefficients indicates involved features.)
 		- algorithm to remove colinearity in features:
+	3.7 Some reference[1] recommends manual categorizing numerical values, whereas others [3] argues that it is not smart to do so, instead of using a more sphosticated model.
