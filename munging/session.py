@@ -32,6 +32,7 @@ class Session():
 		self.skewness_thr = 20
 		self.unique_value_frac_thr = 0.1
 		self.feature_skewness_thr = 20
+		self.colinearity_thr = 0.95
 	################ Data Exploration / Inspection #########################################
 	def get_features(self):
 		return self.data.columns
