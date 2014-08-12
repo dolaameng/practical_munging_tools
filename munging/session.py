@@ -32,7 +32,7 @@ class Session():
 		self.skewness_thr = 20
 		self.unique_value_frac_thr = 0.1
 		self.feature_skewness_thr = 20
-		self.colinearity_thr = 0.95
+		self.corr_thr = 0.95
 	################ Data Exploration / Inspection #########################################
 	def get_features(self):
 		return self.data.columns
@@ -94,8 +94,22 @@ class Session():
 					noninformative_feats.append(f)
 		return np.asarray(noninformative_feats)
 	def find_redundant_features(self):
-		#TODO
-		pass
+		cmatrix = self.data.corr().abs()
+		for i in xrange(cmatrix.shape[0]):
+			cmatrix.iloc[i, i] = 0
+		cmean = cmatrix.mean(axis = 0)
+		redundant_feats = []
+		while True:
+			max_corr = np.asarray(cmatrix).max()
+			if max_corr <= self.corr_thr:
+				break
+			print max_corr, cmatrix.columns[np.where(cmatrix == max_corr)[0]]
+			f1, f2 = cmatrix.columns[np.where(cmatrix == max_corr)[0]]
+			f = f1 if cmean[f1] > cmean[f2] else f2 
+			redundant_feats.append(f)
+			cmatrix.loc[:, f] = 0
+			cmatrix.loc[f, :] = 0
+		return redundant_feats 
 	def get_crossvalue_table(self, feats, targets):
 		value_tables = []
 		for prefix, index in zip(["train_", "validation_", "overall_"], 
