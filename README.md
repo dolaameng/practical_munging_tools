@@ -28,3 +28,6 @@ It interfaces with pandas DataFrame.
 		- find clusters (components) of correlated features - either by visually or by PCA (# of significant components corresponds to # of correlated clusters, and the large coefficients indicates involved features.)
 		- algorithm to remove colinearity in features:
 	3.7 Some reference[1] recommends manual categorizing numerical values, whereas others [3] argues that it is not smart to do so, instead of using a more sphosticated model.
+
+5. order of preprocessing
+	5.1
