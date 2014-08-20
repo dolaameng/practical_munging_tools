@@ -13,6 +13,7 @@ import pandas as pd
 import numpy as np 
 from scipy import stats 
 from sklearn.cross_validation import train_test_split
+
 from transform import *
 
 class Session(object):
@@ -30,6 +31,7 @@ class Session(object):
 			, "FRAC_OF_NA_TO_IGNORE": 0.95
 			, "FRAC_OF_FEAT_TO_BE_NONINFORMATIVE": 0.95
 			, "SKEWNESS_THR": 20
+			, "REDUNDANT_FEAT_CORR_THR": 0.95
 		}
 	def set_parameters(self, **params):
 		self.params.update(params)
@@ -43,12 +45,16 @@ class Session(object):
 			return True
 		elif ftype in np.array([np.int]):
 			return len(self.data[feature_name].unique()) >= self.params["MIN_NUM_VALUES_FOR_NUMERICAL"]
+		else:
+			return False 
 	def is_categorical_feature(self, feature_name):
 		ftype = self.data[feature_name].dtype
 		if ftype in np.array([np.bool, np.object]):
 			return True
 		elif ftype in np.array([np.int]):
 			return len(self.data[feature_name].unique()) < self.params["MIN_NUM_VALUES_FOR_NUMERICAL"]
+		else:
+			return False 
 	def is_na_feature(self, feature_name):
 		return np.any(pd.isnull(self.data[feature_name]))
 	def is_na_heavy(self, feature_name):
@@ -74,7 +80,24 @@ class Session(object):
 	def get_all_input_features(self):
 		return np.asarray([f for f in self.data.columns 
 			if f not in self.removed_features
-			if f is not self.target_feature])
+			if f != self.target_feature])
+	def find_redundant_features(self, feature_names = None):
+		feature_names = feature_names or self.get_features_of(self.is_numerical_feature)
+		corrmat = self.data.loc[:, feature_names].dropna().corr().abs()
+		for i in xrange(corrmat.shape[0]):
+			corrmat.iloc[i, i] = 0
+		corrmean = corrmat.mean(axis = 0)
+		redundant_feats = []
+		while True:
+			corr_max = np.asarray(corrmat).max()
+			if corr_max <= self.params["REDUNDANT_FEAT_CORR_THR"]:
+				break
+			f1, f2 = corrmat.columns[np.where(corrmat == corr_max)[0]]
+			f = f1 if corrmean[f1] > corrmean[f2] else f2
+			redundant_feats.append(f)
+			corrmat.loc[:, f] = 0
+			corrmat.loc[f, :] = 0
+		return redundant_feats 
 
 
 	def remove_features(self, feature_names):
@@ -94,3 +117,45 @@ class Session(object):
 		if auto_remove:
 			self.remove_features(feature_names)
 		return feature_imputer
+	def evenize_skew_features(self, feature_names = None, auto_remove = False):
+		feature_names = feature_names or self.get_features_of(self.is_skewed_numerical_feature)
+		feature_transforms = ['log' if self.data[f].min() > 0
+									else 'log_plus1' if self.data[f].min() >= 0
+									else 'signed_log'
+								 for f in feature_names]
+		feature_evenizer = NumericalFeatureEvenizer(dict(zip(feature_names, feature_transforms)))
+		feature_evenizer.fit(self.data.loc[self.train_index, feature_names])
+		self.data = feature_evenizer.transform(self.data)
+		if auto_remove:
+			self.remove_features(feature_names)
+		return feature_evenizer
+	def whiten_features(self, feature_names = None, auto_remove = False):
+		feature_names = feature_names or self.get_features_of(self.is_numerical_feature)
+		feature_whitener = NumericalFeatureWhitener(feature_names)
+		feature_whitener.fit(self.data.loc[self.train_index, feature_names])
+		self.data = feature_whitener.transform(self.data)
+		if auto_remove:
+			self.remove_features(feature_names)
+		return feature_whitener
+	def numerize_categorical_features(self, feature_names = None, auto_remove = False):
+		if not self.is_categorical_feature(self.target_feature):
+			raise ValueError("this method is for classifiation problem")
+		feature_names = feature_names or self.get_features_of(self.is_categorical_feature)
+		pass
+		##TODO
+
+	def _get_crossvalue_table(self, feats, targets):
+		value_tables = []
+		for prefix, index in zip(["train_", "validation_", "overall_"], 
+								[self.train_index, self.test_index, None]):
+			df = self.data.iloc[index, :] if index is not None else self.data
+			value_table = pd.crosstab(columns = [df[t] for t in targets], 
+							index = [df[f] for f in feats],
+	                        margins=True, dropna = False)
+			value_table = value_table.divide(value_table.All, axis = 'index', ).iloc[:, :-2]
+			value_table = value_table.replace([-np.inf, np.inf], np.nan).dropna()
+			value_table = value_table.rename(columns = {f: prefix+f for f in value_table.columns})
+			value_tables.append(value_table)
+		result = pd.concat(value_tables, axis = 1, join = 'outer')
+		result = result.sort(columns=result.columns[0], ascending=False)
+		return result
