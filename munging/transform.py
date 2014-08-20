@@ -81,14 +81,23 @@ class CategoricalFeatureNumerizer(object):
 	def __init__(self, feature_names, target_name):
 		self.feature_names = feature_names
 		self.target_name = target_name
+		self.suffix = "%s_%s_NUMERIZED"
 		self.lookups = None 
 	def fit(self, data):
-		self.lookups = {f : {} for f in self.feature_names}
+		self.lookups = {}
 		for f in self.feature_names:
 			table = pd.crosstab(columns = data[f], index = data[self.target_name],
 								margins = True, dropna = False)
 			table = table * 1. / table.iloc[-1, :] ## normalize 
-			fvalue = table.iloc[:-2, :].T ## 
-			fvalue.rename(columns = {c: "%s_%s_NUMERIZED" % (f, c) 
-										for c in fvalue.columns}) ## change_name
-			??
+			fvalue = table.iloc[:-2, :].T ## -1 ALL, -2 the last value=1-others
+			fvalue.rename(columns = {c: self.suffix % (f, c) 
+										for c in fvalue.columns}, inplace=True) ## change_name
+			fvalue.reset_index(level = 0, inplace = True) # reset index as index column
+			fvalue.rename(columns = {"index": f}, inplace = True)
+			self.lookups[f] = fvalue
+	def transform(self, data):
+		for f in self.feature_names:
+			#data = data.join(self.lookups[f], on = f, how = "left", rsuffix="!")
+			data = pd.merge(data, self.lookups[f], on = f, how = "left", copy = False)
+		data = data.fillna(0.0)
+		return data
