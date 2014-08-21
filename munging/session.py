@@ -102,21 +102,20 @@ class Session(object):
 
 	def remove_features(self, feature_names):
 		self.removed_features = np.unique(np.hstack([self.removed_features, feature_names]))
-		return self
-	def unremove_features(self, feature_names):
-		self.removed_features = np.asarray([f for f in self.removed_features
-									if f not in feature_names])
-		return self
+		remover = FeatureRemover(feature_names)
+		return remover
 	def impute_features(self, feature_names = None, auto_remove = True):
 		feature_names = feature_names or self.get_features_of(self.is_na_feature)
 		feature_types = ['categorical' if self.is_categorical_feature(f) else 'numerical'
 							for f in feature_names]
 		feature_imputer = FeatureImputer(dict(zip(feature_names, feature_types)))
-		feature_imputer.fit(self.data.loc[self.train_index, feature_names])
+		feature_imputer.fit(self.data.iloc[self.train_index, :])
 		self.data = feature_imputer.transform(self.data)
 		if auto_remove:
-			self.remove_features(feature_names)
-		return feature_imputer
+			remover = self.remove_features(feature_names)
+			return  TransformPipeline([feature_imputer, remover])
+		else:
+			return feature_imputer
 	def evenize_skew_features(self, feature_names = None, auto_remove = False):
 		feature_names = feature_names or self.get_features_of(self.is_skewed_numerical_feature)
 		feature_transforms = ['log' if self.data[f].min() > 0
@@ -124,25 +123,35 @@ class Session(object):
 									else 'signed_log'
 								 for f in feature_names]
 		feature_evenizer = NumericalFeatureEvenizer(dict(zip(feature_names, feature_transforms)))
-		feature_evenizer.fit(self.data.loc[self.train_index, feature_names])
+		feature_evenizer.fit(self.data.iloc[self.train_index, :])
 		self.data = feature_evenizer.transform(self.data)
 		if auto_remove:
-			self.remove_features(feature_names)
-		return feature_evenizer
+			remover = self.remove_features(feature_names)
+			return  TransformPipeline([feature_evenizer, remover])
+		else:
+			return feature_evenizer
 	def whiten_features(self, feature_names = None, auto_remove = False):
 		feature_names = feature_names or self.get_features_of(self.is_numerical_feature)
 		feature_whitener = NumericalFeatureWhitener(feature_names)
-		feature_whitener.fit(self.data.loc[self.train_index, feature_names])
+		feature_whitener.fit(self.data.iloc[self.train_index, :])
 		self.data = feature_whitener.transform(self.data)
 		if auto_remove:
-			self.remove_features(feature_names)
-		return feature_whitener
+			remover = self.remove_features(feature_names)
+			return  TransformPipeline([feature_whitener, remover])
+		else:
+			return feature_whitener
 	def numerize_categorical_features(self, feature_names = None, auto_remove = False):
 		if not self.is_categorical_feature(self.target_feature):
 			raise ValueError("this method is for classifiation problem")
 		feature_names = feature_names or self.get_features_of(self.is_categorical_feature)
-		pass
-		##TODO
+		numerizer = CategoricalFeatureNumerizer(feature_names, self.target_feature)
+		numerizer.fit(self.data.iloc[self.train_index, :])
+		self.data = numerizer.transform(self.data)
+		if auto_remove:
+			remover = self.remove_features(feature_names)
+			return  TransformPipeline([numerizer, remover])
+		else:
+			return numerizer
 
 	def _get_crossvalue_table(self, feats, targets):
 		value_tables = []

@@ -2,6 +2,28 @@ import numpy as np
 import pandas as pd  
 from sklearn.preprocessing import StandardScaler
 
+class TransformPipeline(object):
+	def __init__(self, transformers):
+		self.transformers = transformers
+	def fit(self, data):
+		for tr in self.transformers:
+			tr.fit(data)
+		return self
+	def transform(self, data):
+		transformed_data = data
+		for tr in self.transformers:
+			transformed_data = tr.transform(transformed_data) 
+		return transformed_data
+
+class FeatureRemover(object):
+	def __init__(self, feature_names):
+		self.removed_features = feature_names
+	def fit(self, data):
+		return self 
+	def transform(self, data):
+		removed_features = np.intersect1d(np.asarray(data.columns), self.removed_features)
+		return data.drop(labels = removed_features, axis = 1)
+
 class FeatureImputer(object):
 	def __init__(self, feature_names_to_types):
 		self.feature_names_to_types = feature_names_to_types
@@ -73,7 +95,8 @@ class NumericalFeatureWhitener(object):
 		WHITE_SUFFIX = "%s_WHITE"
 		scaled_data = self.scaler.transform(np.asarray(data.loc[:, self.feature_names]))
 		scaled_data = pd.DataFrame(data = scaled_data, 
-			columns = [WHITE_SUFFIX%f for f in self.feature_names])
+			columns = [WHITE_SUFFIX%f for f in self.feature_names], 
+			index = data.index)
 		data = pd.concat([data, scaled_data], axis = 1)
 		return data
 
