@@ -28,6 +28,7 @@ It interfaces with pandas DataFrame.
 		- find clusters (components) of correlated features - either by visually or by PCA (# of significant components corresponds to # of correlated clusters, and the large coefficients indicates involved features.)
 		- algorithm to remove colinearity in features:
 	3.7 Some reference[1] recommends manual categorizing numerical values, whereas others [3] argues that it is not smart to do so, instead of using a more sphosticated model.
+	3.8 discretization of numerical values is sometime useful when its correlation with target is known to be nonlinear. e.g., to predict the reading capability of a person, we may want to discretize the age feature into [0, 1), [1, 2), [2, 3), [3, 5), ..., [30, 40), ...That is where a density plot of feature vs target comes to help. Both discretization and transformation focus on getting a better *resolution* in features that are easier to relate with target. 
 
 5. order of preprocessing
 	5.1

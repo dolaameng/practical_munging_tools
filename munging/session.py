@@ -12,7 +12,9 @@
 import pandas as pd 
 import numpy as np 
 from scipy import stats 
+import matplotlib.pyplot as plt 
 from sklearn.cross_validation import train_test_split
+import statsmodels.api as sm 
 
 from transform import *
 
@@ -38,7 +40,7 @@ class Session(object):
 	def get_parameters(self):
 		return self.params
 
-	
+	########################## Feature Filtering ##########################
 	def is_numerical_feature(self, feature_name):
 		ftype = self.data[feature_name].dtype
 		if ftype in np.array([np.double, np.float]):
@@ -92,14 +94,14 @@ class Session(object):
 			corr_max = np.asarray(corrmat).max()
 			if corr_max <= self.params["REDUNDANT_FEAT_CORR_THR"]:
 				break
-			f1, f2 = corrmat.columns[np.where(corrmat == corr_max)[0]]
+			f1, f2 = corrmat.columns[list(zip(*np.where(corrmat == corr_max))[0])]
 			f = f1 if corrmean[f1] > corrmean[f2] else f2
 			redundant_feats.append(f)
 			corrmat.loc[:, f] = 0
 			corrmat.loc[f, :] = 0
 		return redundant_feats 
 
-
+		########################## Feature Transformation ##########################
 	def remove_features(self, feature_names):
 		self.removed_features = np.unique(np.hstack([self.removed_features, feature_names]))
 		remover = FeatureRemover(feature_names)
@@ -153,13 +155,16 @@ class Session(object):
 		else:
 			return numerizer
 
-	def _get_crossvalue_table(self, feats, targets):
+	########################## Data Exploration  ##########################
+	def print_categorial_crosstable(self, feature_names = None, targets = None):
+		feature_names = feature_names or self.get_features_of(self.is_categorical_feature)
+		targets = targets or [self.target_feature]
 		value_tables = []
-		for prefix, index in zip(["train_", "validation_", "overall_"], 
+		for prefix, index in zip(["train_", "test_", "overall_"], 
 								[self.train_index, self.test_index, None]):
 			df = self.data.iloc[index, :] if index is not None else self.data
 			value_table = pd.crosstab(columns = [df[t] for t in targets], 
-							index = [df[f] for f in feats],
+							index = [df[f] for f in feature_names],
 	                        margins=True, dropna = False)
 			value_table = value_table.divide(value_table.All, axis = 'index', ).iloc[:, :-2]
 			value_table = value_table.replace([-np.inf, np.inf], np.nan).dropna()
@@ -168,3 +173,44 @@ class Session(object):
 		result = pd.concat(value_tables, axis = 1, join = 'outer')
 		result = result.sort(columns=result.columns[0], ascending=False)
 		return result
+	def plot_feature_pair(self, xname, yname, ax = None, legend = True, figsize = None, *args, **kwargs):
+		"""
+		Plot the 'scatter plot' of a pair of two features based on the types of features, 
+		e.g., 
+		1. numberical vs numbercial - scatter plot with lowess 
+		2. numericla vs categorical - density plot grouped by categorical vars 
+		3. categorical vs categorical - stacked barchart (hexbin or confusion matrix plot)
+		This will help spot useful features that are both common and have extreme patterns (for classification)
+		df: DataFrame
+		xname: name of feature x (usually an input feature of interest)
+		yname: name of feature y (usually the output feature )
+		args, kwargs: plotting parameters
+		"""
+		df = self.data.loc[:, [xname, yname]].dropna()
+		if ax is None:
+			fig, ax = plt.subplots(1, 1, figsize = figsize)
+
+		x_dtype = "numerical" if self.is_numerical_feature(xname) else "categorical"
+		y_dtype = "numerical" if self.is_numerical_feature(yname) else "categorical"
+		x, y = df[xname], df[yname]
+		if x_dtype is "numerical" and y_dtype is "numerical":
+			ax.scatter(x, y, color = "blue", s = 10, marker = ".", *args, **kwargs)
+			lowessy = sm.nonparametric.lowess(y, x, return_sorted = False)
+			ax.plot(sorted(x), sorted(lowessy), "r-", label="lowess", alpha = 1)
+			ax.set_xlabel("%s(%s)" % (xname, x_dtype))
+			ax.set_ylabel("%s(%s)" % (yname, y_dtype))
+		elif x_dtype is "numerical" and y_dtype is "categorical":
+			for value, subdf in df.groupby(by = yname):
+				if subdf.shape[0] > 1:
+					subdf[xname].plot(kind = "density", label = value, ax = ax)
+			ax.set_xlabel("%s|%s" % (xname, yname))
+		elif x_dtype is "categorical" and y_dtype is "numerical":
+			for value, subdf in df.groupby(by = xname):
+				if subdf.shape[0] > 1:
+					subdf[yname].plot(kind = "density", label = value, ax = ax)
+			ax.set_xlabel("%s|%s" % (yname, xname))
+		else: # categorical and categorical
+			pd.crosstab(df[xname], df[yname], margins = False).plot(kind = 'barh', stacked = True, ax = ax)
+			ax.set_xlabel("dist. of %s" % yname)
+		if legend: 
+			ax.legend(loc = "best")
