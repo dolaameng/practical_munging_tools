@@ -14,6 +14,7 @@ import numpy as np
 from scipy import stats 
 import matplotlib.pyplot as plt 
 from sklearn.cross_validation import train_test_split
+from sklearn.metrics import roc_auc_score
 import statsmodels.api as sm 
 
 from transform import *
@@ -39,6 +40,13 @@ class Session(object):
 		self.params.update(params)
 	def get_parameters(self):
 		return self.params
+	def get_data(self, selected_features = None):
+		if selected_features is None:
+			selected_features =  self.get_all_input_features()
+		selected_features = np.append(selected_features, self.target_feature)
+		train_data = self.data.iloc[self.train_index, :].loc[:, selected_features]
+		test_data = self.data.iloc[self.test_index, :].loc[:, selected_features]
+		return (train_data, test_data)
 
 	########################## Feature Filtering ##########################
 	def is_numerical_feature(self, feature_name):
@@ -154,6 +162,19 @@ class Session(object):
 			return  TransformPipeline([numerizer, remover])
 		else:
 			return numerizer
+
+	########################## Feature Selection ##########################
+	def rank_features(self, feature_names, by, *args, **kwargs):
+		train_scores, test_scores = zip(*[by(feature_name = f, *args, **kwargs) for f in feature_names])
+		return sorted(zip(feature_names, test_scores), key=lambda (f,s): s, reverse=True)
+	def numerized_feature_auc_metric(self, feature_name, target_value):
+		train_data = self.data.iloc[self.train_index, :][feature_name]
+		train_target = self.data.iloc[self.train_index, :][self.target_feature] == target_value
+		test_data = self.data.iloc[self.test_index, :][feature_name]
+		test_target = self.data.iloc[self.test_index, :][self.target_feature] == target_value
+		train_score = roc_auc_score(train_target, train_data)
+		test_score = roc_auc_score(test_target, test_data)
+		return (train_score, test_score)
 
 	########################## Data Exploration  ##########################
 	def print_categorial_crosstable(self, feature_names = None, targets = None):
