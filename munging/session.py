@@ -12,12 +12,14 @@
 import pandas as pd 
 import numpy as np 
 from scipy import stats 
+import math
 import matplotlib.pyplot as plt 
 from sklearn.cross_validation import train_test_split
 from sklearn.metrics import roc_auc_score
 import statsmodels.api as sm 
 
 from transform import *
+from model import *
 
 class Session(object):
 	def __init__(self, data, target_feature, test_frac = 0.3, copy = True):
@@ -32,7 +34,7 @@ class Session(object):
 		self.params = {
 			  "MIN_NUM_VALUES_FOR_NUMERICAL": 5
 			, "FRAC_OF_NA_TO_IGNORE": 0.95
-			, "FRAC_OF_FEAT_TO_BE_NONINFORMATIVE": 0.95
+			, "FRAC_OF_FEAT_TO_BE_NONINFORMATIVE": 0.99
 			, "SKEWNESS_THR": 20
 			, "REDUNDANT_FEAT_CORR_THR": 0.95
 		}
@@ -47,6 +49,9 @@ class Session(object):
 		train_data = self.data.iloc[self.train_index, :].loc[:, selected_features]
 		test_data = self.data.iloc[self.test_index, :].loc[:, selected_features]
 		return (train_data, test_data)
+	def get_transform_combiners(self, transformers):
+		combiner = TransformPipeline(transformers)
+		return combiner
 
 	########################## Feature Filtering ##########################
 	def is_numerical_feature(self, feature_name):
@@ -84,6 +89,9 @@ class Session(object):
 		elif value_counts.max()*1./self.data.shape[0] >= self.params["FRAC_OF_FEAT_TO_BE_NONINFORMATIVE"]:
 			return True 
 		return False 
+	def is_numerized_from_categorical_feature(self, feature_name):
+		return feature_name.endswith("_NUMERIZED")
+
 	def get_features_of(self, criterion = None):
 		return np.asarray([f for f in self.get_all_input_features()
 			if criterion(f)])
@@ -92,7 +100,8 @@ class Session(object):
 			if f not in self.removed_features
 			if f != self.target_feature])
 	def find_redundant_features(self, feature_names = None):
-		feature_names = feature_names or self.get_features_of(self.is_numerical_feature)
+		if feature_names is None:
+			feature_names = self.get_features_of(self.is_numerical_feature)
 		corrmat = self.data.loc[:, feature_names].dropna().corr().abs()
 		for i in xrange(corrmat.shape[0]):
 			corrmat.iloc[i, i] = 0
@@ -115,7 +124,8 @@ class Session(object):
 		remover = FeatureRemover(feature_names)
 		return remover
 	def impute_features(self, feature_names = None, auto_remove = True):
-		feature_names = feature_names or self.get_features_of(self.is_na_feature)
+		if feature_names is None:
+			feature_names = self.get_features_of(self.is_na_feature)
 		feature_types = ['categorical' if self.is_categorical_feature(f) else 'numerical'
 							for f in feature_names]
 		feature_imputer = FeatureImputer(dict(zip(feature_names, feature_types)))
@@ -127,7 +137,8 @@ class Session(object):
 		else:
 			return feature_imputer
 	def evenize_skew_features(self, feature_names = None, auto_remove = False):
-		feature_names = feature_names or self.get_features_of(self.is_skewed_numerical_feature)
+		if feature_names is None:
+			feature_names = self.get_features_of(self.is_skewed_numerical_feature)
 		feature_transforms = ['log' if self.data[f].min() > 0
 									else 'log_plus1' if self.data[f].min() >= 0
 									else 'signed_log'
@@ -141,7 +152,8 @@ class Session(object):
 		else:
 			return feature_evenizer
 	def whiten_features(self, feature_names = None, auto_remove = False):
-		feature_names = feature_names or self.get_features_of(self.is_numerical_feature)
+		if feature_names is None:
+			feature_names = self.get_features_of(self.is_numerical_feature)
 		feature_whitener = NumericalFeatureWhitener(feature_names)
 		feature_whitener.fit(self.data.iloc[self.train_index, :])
 		self.data = feature_whitener.transform(self.data)
@@ -150,10 +162,22 @@ class Session(object):
 			return  TransformPipeline([feature_whitener, remover])
 		else:
 			return feature_whitener
+	def minmax_scale_features(self, feature_names = None, auto_remove = False):
+		if feature_names is None:
+			feature_names = self.get_features_of(self.is_numerical_feature)
+		feature_scaler = NumericalFeatureMinMaxScaler(feature_names)
+		feature_scaler.fit(self.data.iloc[self.train_index, :])
+		self.data = feature_scaler.transform(self.data)
+		if auto_remove:
+			remover = self.remove_features(feature_names)
+			return TransformPipeline([feature_scaler, remover])
+		else:
+			return feature_scaler
 	def numerize_categorical_features(self, feature_names = None, auto_remove = False):
 		if not self.is_categorical_feature(self.target_feature):
 			raise ValueError("this method is for classifiation problem")
-		feature_names = feature_names or self.get_features_of(self.is_categorical_feature)
+		if feature_names is None:
+			feature_names = self.get_features_of(self.is_categorical_feature)
 		numerizer = CategoricalFeatureNumerizer(feature_names, self.target_feature)
 		numerizer.fit(self.data.iloc[self.train_index, :])
 		self.data = numerizer.transform(self.data)
@@ -175,10 +199,19 @@ class Session(object):
 		train_score = roc_auc_score(train_target, train_data)
 		test_score = roc_auc_score(test_target, test_data)
 		return (train_score, test_score)
+	def numerized_feature_logloss_metric(self, feature_name, target_value):
+		train_data = self.data.iloc[self.train_index, :][feature_name]
+		train_target = self.data.iloc[self.train_index, :][self.target_feature] == target_value
+		test_data = self.data.iloc[self.test_index, :][feature_name]
+		test_target = self.data.iloc[self.test_index, :][self.target_feature] == target_value
+		train_score = -np.mean(np.log(np.where(train_target==target_value, train_data, 1-train_data)))
+		test_score = -np.mean(np.log(np.where(test_target==target_value, test_data, 1-test_data)))
+		return (train_score, test_score)
 
 	########################## Data Exploration  ##########################
 	def print_categorial_crosstable(self, feature_names = None, targets = None):
-		feature_names = feature_names or self.get_features_of(self.is_categorical_feature)
+		if feature_names is None:
+			feature_names = self.get_features_of(self.is_categorical_feature)
 		targets = targets or [self.target_feature]
 		value_tables = []
 		for prefix, index in zip(["train_", "test_", "overall_"], 
@@ -235,3 +268,22 @@ class Session(object):
 			ax.set_xlabel("dist. of %s" % yname)
 		if legend: 
 			ax.legend(loc = "best")
+		return self 
+	def plot_numerical_feature_density(self, feature_names=None):
+		if feature_names is None:
+			feature_names = [f for f in self.get_features_of(self.is_numerical_feature)
+								if f not in self.get_features_of(self.is_numerized_from_categorical_feature)]
+		nfeats = len(feature_names)
+		nrows, ncols = int(math.ceil(nfeats / 4)), 4
+		fig, axes = plt.subplots(nrows = nrows, ncols = ncols, figsize = (4 * ncols, 4 * nrows))
+		axes = axes.ravel()
+		for f, ax in zip(feature_names, axes):
+			self.plot_feature_pair(xname = f, yname = self.target_feature, ax = ax, legend=False)
+		return self 
+
+	########################## Model Fitting ##################################
+	def blend_models(self, models, blender):
+		"""
+		Idea credited to https://github.com/emanuele/kaggle_pbr/blob/master/blend.py
+		"""
+		pass 

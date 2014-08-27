@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd  
 from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
 
 class TransformPipeline(object):
 	def __init__(self, transformers):
@@ -72,7 +73,7 @@ class NumericalFeatureEvenizer(object):
 		return data 
 	@staticmethod 
 	def log(xs):
-		return np.log(xs)
+		return np.log(xs+1e-5)
 	@staticmethod
 	def log_plus1(xs):
 		return np.log(xs + 1.)
@@ -97,6 +98,23 @@ class NumericalFeatureWhitener(object):
 		scaled_data = pd.DataFrame(data = scaled_data, 
 			columns = [WHITE_SUFFIX%f for f in self.feature_names], 
 			index = data.index)
+		data = pd.concat([data, scaled_data], axis = 1)
+		return data
+
+class NumericalFeatureMinMaxScaler(object):
+	def __init__(self, feature_names):
+		self.feature_names = feature_names
+		self.scaler = None 
+	def fit(self, data):
+		self.scaler = MinMaxScaler(copy = True)
+		self.scaler.fit(np.asarray(data.loc[:, self.feature_names]))
+		return self
+	def transform(self, data):
+		SCALE_SUFFIX = "%s_SCALED"
+		scaled_data = self.scaler.transform(np.asarray(data.loc[:, self.feature_names]))
+		scaled_data = pd.DataFrame(data = scaled_data,
+							columns = [SCALE_SUFFIX%f for f in self.feature_names],
+							index = data.index)
 		data = pd.concat([data, scaled_data], axis = 1)
 		return data
 
