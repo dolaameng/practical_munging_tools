@@ -34,7 +34,7 @@ class Session(object):
 		self.params = {
 			  "MIN_NUM_VALUES_FOR_NUMERICAL": 5
 			, "FRAC_OF_NA_TO_IGNORE": 0.95
-			, "FRAC_OF_FEAT_TO_BE_NONINFORMATIVE": 0.99
+			, "FRAC_OF_FEAT_TO_BE_NONINFORMATIVE": 0.96
 			, "SKEWNESS_THR": 20
 			, "REDUNDANT_FEAT_CORR_THR": 0.95
 		}
@@ -282,8 +282,9 @@ class Session(object):
 		return self 
 
 	########################## Model Fitting ##################################
-	def blend_models(self, models, blender):
+	def blend_models(self, models, blender, target_value_index = 1, n_folds = 5):
 		"""
 		Idea credited to https://github.com/emanuele/kaggle_pbr/blob/master/blend.py
 		"""
 		pass 
+		## TODO
