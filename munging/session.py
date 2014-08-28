@@ -22,12 +22,12 @@ from transform import *
 from model import *
 
 class Session(object):
-	def __init__(self, data, target_feature, test_frac = 0.3, copy = True):
+	def __init__(self, data, target_feature, test_frac = 0.3, copy = True, random_state = None):
 		self.data = data.copy() if copy else data
 		self.target_feature = target_feature
 
 		self.train_index, self.test_index = train_test_split(np.arange(data.shape[0]), 
-												test_size = test_frac)
+												test_size = test_frac, random_state=random_state)
 
 		self.removed_features = np.array([])
 
@@ -222,7 +222,7 @@ class Session(object):
 	                        margins=True, dropna = False)
 			value_table = value_table.divide(value_table.All, axis = 'index', ).iloc[:, :-2]
 			value_table = value_table.replace([-np.inf, np.inf], np.nan).dropna()
-			value_table = value_table.rename(columns = {f: prefix+f for f in value_table.columns})
+			value_table = value_table.rename(columns = {f: prefix+str(f) for f in value_table.columns})
 			value_tables.append(value_table)
 		result = pd.concat(value_tables, axis = 1, join = 'outer')
 		result = result.sort(columns=result.columns[0], ascending=False)
@@ -282,9 +282,15 @@ class Session(object):
 		return self 
 
 	########################## Model Fitting ##################################
-	def blend_models(self, models, blender, target_value_index = 1, n_folds = 5):
+	def blend_models(self, models, blender, 
+		score_function = None, 
+		feature_names = None, target_value_index = 1, n_folds = 5):
 		"""
 		Idea credited to https://github.com/emanuele/kaggle_pbr/blob/master/blend.py
 		"""
-		pass 
-		## TODO
+		if feature_names is None:
+			feature_names = self.get_all_input_features()
+		blender = ModelBlender(feature_names, self.target_feature, models, blender, 
+				target_value_index, n_folds)
+		blender.fit(self.data.iloc[self.train_index, :])
+		return blender 
