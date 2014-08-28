@@ -43,11 +43,11 @@ class FeatureImputer(object):
 		for fname, ftype in self.feature_names_to_types.items():
 			if ftype == 'categorical':
 				imputed_values = data[fname].replace({np.nan: self.imputed_values[fname]})
-				data[impute_suffix % fname] = imputed_values
+				data[impute_suffix % fname] = imputed_values.astype(np.str)
 			elif ftype == 'numerical':
 				imputed_values = data[fname].replace({np.nan: self.imputed_values[fname]})
 				data[impute_suffix % fname] = imputed_values
-				data[isimpute_suffix % fname] = pd.isnull(data[fname])
+				data[isimpute_suffix % fname] = pd.isnull(data[fname]).astype(np.int)
 		return data 
 
 class NumericalFeatureEvenizer(object):

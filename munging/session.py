@@ -103,19 +103,25 @@ class Session(object):
 		if feature_names is None:
 			feature_names = self.get_features_of(self.is_numerical_feature)
 		corrmat = self.data.loc[:, feature_names].dropna().corr().abs()
+		corrmat = corrmat.fillna(value = 0)
 		for i in xrange(corrmat.shape[0]):
 			corrmat.iloc[i, i] = 0
 		corrmean = corrmat.mean(axis = 0)
 		redundant_feats = []
 		while True:
-			corr_max = np.asarray(corrmat).max()
-			if corr_max <= self.params["REDUNDANT_FEAT_CORR_THR"]:
-				break
-			f1, f2 = corrmat.columns[list(zip(*np.where(corrmat == corr_max))[0])]
-			f = f1 if corrmean[f1] > corrmean[f2] else f2
-			redundant_feats.append(f)
-			corrmat.loc[:, f] = 0
-			corrmat.loc[f, :] = 0
+			try:
+				corr_max = np.asarray(corrmat).max()
+				if corr_max <= self.params["REDUNDANT_FEAT_CORR_THR"]:
+					break
+				f1, f2 = corrmat.columns[list(zip(*np.where(corrmat == corr_max))[0])]
+				f = f1 if corrmean[f1] > corrmean[f2] else f2
+				redundant_feats.append(f)
+				corrmat.loc[:, f] = 0
+				corrmat.loc[f, :] = 0
+			except:
+				print corr_max
+				print corrmat.columns[list(zip(*np.where(corrmat == corr_max))[0])]
+				break 
 		return redundant_feats 
 
 		########################## Feature Transformation ##########################
@@ -278,7 +284,10 @@ class Session(object):
 		fig, axes = plt.subplots(nrows = nrows, ncols = ncols, figsize = (4 * ncols, 4 * nrows))
 		axes = axes.ravel()
 		for f, ax in zip(feature_names, axes):
-			self.plot_feature_pair(xname = f, yname = self.target_feature, ax = ax, legend=False)
+			try:
+				self.plot_feature_pair(xname = f, yname = self.target_feature, ax = ax, legend=False)
+			except:
+				pass
 		return self 
 
 	########################## Model Fitting ##################################

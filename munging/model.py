@@ -41,5 +41,5 @@ class ModelBlender(object):
 			cvhat = np.asarray([self.cv_models[imodel][ifold].predict_proba(X)[:, self.target_value_index]
 								for ifold in xrange(len(self.cv_models[imodel]))]).mean(axis = 0)
 			blender_X[:, imodel] = cvhat
-		yhat = self.blender.predict_proba(blender_X)[:, 1]
+		yhat = self.blender.predict_proba(blender_X)[:, self.target_value_index]
 		return yhat
