@@ -3,7 +3,7 @@ import pandas as pd
 from sklearn.base import clone 
 from sklearn.cross_validation import KFold
 
-class ModelBlender(object):
+class BiClassModelBlender(object):
 	"""
 	Idea credited to https://github.com/emanuele/kaggle_pbr/blob/master/blend.py
 	"""

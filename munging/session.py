@@ -291,7 +291,7 @@ class Session(object):
 		return self 
 
 	########################## Model Fitting ##################################
-	def blend_models(self, models, blender, 
+	def blend_biclass_models(self, models, blender, 
 		score_function = None, 
 		feature_names = None, target_value_index = 1, n_folds = 5):
 		"""
@@ -299,7 +299,7 @@ class Session(object):
 		"""
 		if feature_names is None:
 			feature_names = self.get_all_input_features()
-		blender = ModelBlender(feature_names, self.target_feature, models, blender, 
+		blender = BiClassModelBlender(feature_names, self.target_feature, models, blender, 
 				target_value_index, n_folds)
 		blender.fit(self.data.iloc[self.train_index, :])
 		return blender 
